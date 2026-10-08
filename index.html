@@ -1,0 +1,2157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的旅行计划</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"PingFang SC"', '"Microsoft YaHei"', 'system-ui', 'sans-serif'] },
+        },
+      },
+    };
+  </script>
+  <style>
+    input[type="number"]::-webkit-inner-spin-button { opacity: 0.3; }
+    #plan-list::-webkit-scrollbar { width: 6px; }
+    #plan-list::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased">
+
+  <!-- ============ 头部:当前计划概览 ============ -->
+  <header class="relative overflow-hidden bg-gradient-to-br from-teal-600 via-cyan-700 to-slate-900 text-white">
+    <div class="absolute -top-24 -right-24 h-72 w-72 rounded-full bg-white/10 blur-2xl"></div>
+    <div id="hero-bg" class="absolute inset-0 hidden bg-cover bg-center"></div>
+    <div id="hero-shade" class="absolute inset-0 hidden bg-gradient-to-t from-slate-900/90 via-slate-900/60 to-slate-900/35"></div>
+    <div class="relative mx-auto max-w-6xl px-6 py-12">
+      <div class="flex items-start justify-between gap-4">
+        <p class="text-xs font-medium uppercase tracking-[0.2em] text-teal-200">My Travel Plans</p>
+        <div class="flex shrink-0 flex-wrap items-center justify-end gap-2">
+          <button id="btn-poster-view" class="hidden rounded-full bg-white/15 px-3 py-1 text-xs text-white backdrop-blur transition hover:bg-white/25">查看海报</button>
+          <button id="btn-poster" class="rounded-full bg-white/15 px-3 py-1 text-xs text-white backdrop-blur transition hover:bg-white/25">上传海报</button>
+          <button id="btn-poster-del" class="hidden rounded-full bg-white/15 px-3 py-1 text-xs text-white backdrop-blur transition hover:bg-rose-500/80">移除</button>
+          <span id="save-state" class="rounded-full bg-white/10 px-3 py-1 text-xs text-teal-100"></span>
+        </div>
+      </div>
+      <input id="poster-input" type="file" accept="image/*" class="hidden">
+      <h1 id="hero-title" class="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">未命名的计划</h1>
+      <p id="hero-sub" class="mt-2 text-sm text-teal-100/80">还没设置目的地</p>
+      <dl class="mt-7 flex flex-wrap gap-x-10 gap-y-4 text-sm">
+        <div><dt class="text-teal-200">出行日期</dt><dd id="hero-date" class="mt-1 text-lg font-semibold">待定</dd></div>
+        <div><dt class="text-teal-200">行程天数</dt><dd id="hero-days" class="mt-1 text-lg font-semibold">0 天</dd></div>
+        <div><dt class="text-teal-200">预算合计</dt><dd id="hero-total" class="mt-1 text-lg font-semibold">¥0</dd></div>
+        <div><dt class="text-teal-200">人均</dt><dd id="hero-per" class="mt-1 text-lg font-semibold">¥0</dd></div>
+      </dl>
+    </div>
+  </header>
+
+  <div class="mx-auto max-w-6xl gap-8 px-6 py-10 lg:grid lg:grid-cols-[264px_1fr]">
+
+    <!-- ============ 侧边栏:计划列表 ============ -->
+    <aside class="lg:sticky lg:top-6 lg:self-start">
+      <div class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <div class="flex items-baseline justify-between">
+          <h2 class="text-sm font-bold">我的旅行计划</h2>
+          <span id="plan-count" class="text-xs text-slate-400"></span>
+        </div>
+
+        <!-- 新建计划 -->
+        <form id="new-plan-form" class="mt-4 flex gap-2">
+          <input id="new-plan-name" type="text" maxlength="40" placeholder="新计划名称"
+            class="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          <button type="submit" title="新建空白计划"
+            class="shrink-0 rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-teal-700">新建</button>
+        </form>
+
+        <ul id="plan-list" class="mt-4 max-h-[46vh] space-y-1 overflow-y-auto pr-1"></ul>
+
+        <div class="mt-4 border-t border-slate-100 pt-4">
+          <button id="btn-save-as"
+            class="w-full rounded-lg bg-slate-900 px-3 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700">另存为新计划</button>
+          <div class="mt-2 flex gap-2">
+            <button id="btn-demo" class="flex-1 rounded-lg px-2 py-2 text-xs font-medium text-slate-500 ring-1 ring-slate-200 transition hover:bg-slate-50">载入示例</button>
+            <button id="btn-reset" class="flex-1 rounded-lg px-2 py-2 text-xs font-medium text-rose-500 ring-1 ring-rose-200 transition hover:bg-rose-50">清空当前</button>
+          </div>
+        </div>
+
+        <!-- 本地文件 -->
+        <div class="mt-4 border-t border-slate-100 pt-4">
+          <h3 class="text-xs font-bold text-slate-500">本地文件</h3>
+          <div class="mt-2.5 grid grid-cols-2 gap-2">
+            <button id="btn-export" title="把当前计划保存成 .json 文件"
+              class="rounded-lg bg-teal-50 px-2 py-2 text-xs font-medium text-teal-700 ring-1 ring-teal-100 transition hover:bg-teal-100">↓ 导出计划</button>
+            <button id="btn-import" title="从电脑上的 .json 文件恢复计划"
+              class="rounded-lg bg-slate-100 px-2 py-2 text-xs font-medium text-slate-700 transition hover:bg-slate-200">↑ 导入计划</button>
+          </div>
+          <button id="btn-export-all"
+            class="mt-2 w-full rounded-lg px-2 py-2 text-xs font-medium text-slate-500 ring-1 ring-slate-200 transition hover:bg-slate-50">导出全部计划(备份)</button>
+          <input id="file-input" type="file" accept=".json,application/json" multiple class="hidden">
+        </div>
+      </div>
+      <p class="mt-3 px-1 text-xs leading-relaxed text-slate-400">
+        计划保存在此浏览器本地。导出成文件可备份、换设备或发给朋友;也可以把 .json 文件直接拖到页面上导入。
+      </p>
+    </aside>
+
+    <!-- ============ 主体 ============ -->
+    <main class="mt-8 space-y-12 lg:mt-0">
+
+      <!-- 1. 基本信息 -->
+      <section>
+        <h2 class="text-xl font-bold">基本信息</h2>
+        <p class="mt-1 text-sm text-slate-500">填写出发日期后,每天的日期会自动推算。</p>
+        <div class="mt-5 grid gap-4 rounded-2xl bg-white p-6 shadow-sm ring-1 ring-slate-200 sm:grid-cols-2 lg:grid-cols-3">
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">计划名称</span>
+            <input id="input-plan-name" type="text" maxlength="40" placeholder="例如:日本之旅"
+              class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          </label>
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">目的地</span>
+            <input data-trip="destination" type="text" placeholder="例如:京都 · 奈良"
+              class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          </label>
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">出发日期</span>
+            <input data-trip="startDate" type="date"
+              class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          </label>
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">天数</span>
+            <input id="input-days" type="number" min="1" max="60"
+              class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          </label>
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">同行人数</span>
+            <input data-trip="people" type="number" min="1" max="30"
+              class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          </label>
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">默认货币 <span class="text-slate-400">(新建金额时预选)</span></span>
+            <select id="input-currency"
+              class="mt-1.5 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"></select>
+          </label>
+        </div>
+      </section>
+
+      <!-- 2. 每日行程 -->
+      <section>
+        <div class="flex items-end justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-bold">每日行程</h2>
+            <p class="mt-1 text-sm text-slate-500">卡片里可逐条添加行程与交通,内容即时保存。</p>
+          </div>
+          <button id="btn-add-day" class="shrink-0 rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-teal-700">+ 添加一天</button>
+        </div>
+        <div id="day-list" class="mt-5 space-y-4"></div>
+      </section>
+
+      <!-- 3. 预算记账 -->
+      <section>
+        <div class="flex items-end justify-between gap-4">
+          <h2 class="text-xl font-bold">预算记账</h2>
+          <p class="text-sm text-slate-500">行程内的预算自动汇总</p>
+        </div>
+
+        <div class="mt-5 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <p class="text-xs text-slate-500">添加额外花销(不属于某一天行程的临时开销)</p>
+          <form id="expense-form" class="mt-3 grid gap-3 sm:grid-cols-[1fr_120px_100px_auto]">
+            <input id="exp-name" type="text" placeholder="项目,例如:临时打车" required
+              class="rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+            <input id="exp-amount" type="number" step="0.01" min="0" placeholder="金额" required
+              class="rounded-lg border border-slate-200 px-3 py-2 text-right text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+            <select id="exp-cur" title="货币"
+              class="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"></select>
+            <button type="submit" class="rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-700">添加</button>
+          </form>
+          <div id="quick-tags" class="mt-3 flex flex-wrap items-center gap-2">
+            <span class="text-xs text-slate-400">快捷:</span>
+          </div>
+        </div>
+
+        <div class="mt-4 overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-slate-200">
+          <table class="w-full text-sm">
+            <thead class="bg-slate-50 text-left text-xs uppercase tracking-wider text-slate-500">
+              <tr>
+                <th class="px-5 py-3 font-medium">项目</th>
+                <th class="px-5 py-3 text-right font-medium">金额 (¥)</th>
+                <th class="w-12 px-5 py-3"></th>
+              </tr>
+            </thead>
+            <tbody id="expense-list" class="divide-y divide-slate-100"></tbody>
+            <tfoot class="bg-slate-50">
+              <tr class="text-slate-500">
+                <td class="px-5 py-3">每日行程预算</td>
+                <td id="items-total" class="px-5 py-3 text-right tabular-nums">¥0</td>
+                <td></td>
+              </tr>
+              <tr class="text-slate-500">
+                <td class="px-5 py-3">额外花销</td>
+                <td id="expense-total" class="px-5 py-3 text-right tabular-nums">¥0</td>
+                <td></td>
+              </tr>
+              <tr class="border-t border-slate-200 font-semibold">
+                <td class="px-5 py-3.5">总计(折合人民币)</td>
+                <td id="grand-total" class="px-5 py-3.5 text-right tabular-nums text-teal-700">¥0</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+
+        <!-- 汇率 -->
+        <div id="rate-box" class="mt-4 hidden rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h3 class="text-sm font-bold">汇率</h3>
+            <p class="text-xs text-slate-400">手动维护:1 外币 = ? 人民币</p>
+          </div>
+          <div id="rate-list" class="mt-3 grid gap-2 sm:grid-cols-2"></div>
+          <p id="rate-cny" class="mt-3 text-xs text-slate-400"></p>
+        </div>
+      </section>
+
+      <!-- 4. To do list -->
+      <section>
+        <h2 class="text-xl font-bold">To do list</h2>
+        <p class="mt-1 text-sm text-slate-500">出发前要带的东西,和要提前办的事。</p>
+
+        <!-- 行李清单 -->
+        <div class="mt-5 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <div class="flex flex-wrap items-baseline justify-between gap-3">
+            <h3 class="text-sm font-bold">🧳 行李清单</h3>
+            <span id="lug-progress" class="text-xs text-slate-400">0 / 0 已装箱</span>
+          </div>
+          <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100">
+            <div id="lug-bar" class="h-full rounded-full bg-emerald-500 transition-all duration-300" style="width:0%"></div>
+          </div>
+
+          <form id="lug-form" class="mt-4 grid gap-2 sm:grid-cols-[1fr_76px_130px_120px_auto]">
+            <input id="lug-name" type="text" maxlength="30" placeholder="物品名称,例如:充电宝" required
+              class="rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+            <input id="lug-qty" type="number" min="1" max="999" value="1" title="数量"
+              class="rounded-lg border border-slate-200 px-3 py-2 text-right text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+            <select id="lug-tag" title="标签"
+              class="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"></select>
+            <select id="lug-status" title="状态"
+              class="rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+              <option value="unpacked">未装箱</option>
+              <option value="packed">已装箱</option>
+              <option value="none">未拥有</option>
+            </select>
+            <button type="submit" class="rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-700">添加</button>
+          </form>
+          <button id="btn-add-tag" type="button" class="mt-2 text-xs font-medium text-teal-600 transition hover:text-teal-700">＋ 新建标签</button>
+
+          <div id="lug-list" class="mt-4 space-y-5"></div>
+        </div>
+
+        <!-- 待做事项 -->
+        <div class="mt-4 rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+          <div class="flex flex-wrap items-baseline justify-between gap-3">
+            <h3 class="text-sm font-bold">📝 待做事项</h3>
+            <span id="todo-progress" class="text-xs text-slate-400">0 / 0 已完成</span>
+          </div>
+
+          <form id="todo-form" class="mt-4">
+            <div class="grid gap-2 sm:grid-cols-[1fr_160px]">
+              <input id="todo-title" type="text" maxlength="60" placeholder="任务名称,例如:办理签证" required
+                class="rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+              <input id="todo-due" type="date" title="最晚完成日期"
+                class="rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+              <input id="todo-detail" type="text" maxlength="120" placeholder="详情(可留空)"
+                class="rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 sm:col-span-2">
+            </div>
+            <div class="mt-2 flex justify-end">
+              <button type="submit" class="rounded-lg bg-slate-900 px-5 py-2 text-sm font-medium text-white transition hover:bg-slate-700">添加</button>
+            </div>
+          </form>
+
+          <ul id="todo-list" class="mt-3 space-y-2"></ul>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="border-t border-slate-200 py-8 text-center text-xs text-slate-400">
+    数据存于浏览器 localStorage,不会上传。清理浏览器数据会一并清除。
+  </footer>
+
+  <!-- 行程 / 交通 编辑弹窗 -->
+  <dialog id="item-dialog" class="w-[min(94vw,520px)] rounded-2xl p-0 shadow-xl backdrop:bg-slate-900/40">
+    <form id="item-form" class="max-h-[85vh] overflow-y-auto p-6">
+      <h3 id="item-title" class="text-base font-semibold text-slate-800">添加行程</h3>
+
+      <!-- 行程 -->
+      <div data-pane="activity" class="mt-4 space-y-3">
+        <label class="block">
+          <span class="text-xs font-medium text-slate-500">行程名称 *</span>
+          <input id="a-name" type="text" maxlength="60" placeholder="例如:清水寺"
+            class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+        </label>
+        <div>
+          <span class="text-xs font-medium text-slate-500">种类</span>
+          <div id="a-cat" class="mt-1.5 flex flex-wrap gap-2"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">出发时间</span>
+            <input id="a-time" type="time"
+              class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          </label>
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">预算</span>
+            <div class="mt-1.5 flex gap-2">
+              <input id="a-budget" type="number" min="0" step="0.01" placeholder="0"
+                class="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-right text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+              <select id="a-cur" title="货币"
+                class="w-[92px] shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"></select>
+            </div>
+          </label>
+        </div>
+        <label class="block">
+          <span class="text-xs font-medium text-slate-500">地址</span>
+          <input id="a-address" type="text" placeholder="例如:京都市东山区清水 1-294"
+            class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+        </label>
+        <label class="block">
+          <span class="text-xs font-medium text-slate-500">详情</span>
+          <textarea id="a-detail" rows="3" placeholder="开放时间、门票、注意事项…"
+            class="mt-1.5 w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"></textarea>
+        </label>
+        <div>
+          <span class="text-xs font-medium text-slate-500">状态</span>
+          <div id="a-status" class="mt-1.5 flex flex-wrap gap-2"></div>
+        </div>
+        <div>
+          <span class="text-xs font-medium text-slate-500">图片 <span class="text-slate-400">(最多 3 张)</span></span>
+          <div id="a-photos" class="mt-1.5 flex flex-wrap gap-2"></div>
+          <input id="a-photo-input" type="file" accept="image/*" multiple class="hidden">
+        </div>
+      </div>
+
+      <!-- 交通 -->
+      <div data-pane="transport" class="mt-4 space-y-3">
+        <div>
+          <span class="text-xs font-medium text-slate-500">距离</span>
+          <div id="t-range" class="mt-1.5 flex gap-2"></div>
+        </div>
+        <div>
+          <span class="text-xs font-medium text-slate-500">交通形式</span>
+          <div id="t-mode" class="mt-1.5 flex flex-wrap gap-2"></div>
+          <input id="t-mode-other" type="text" maxlength="20" placeholder="自定义交通形式,例如:缆车"
+            class="mt-2 hidden w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">出发地点</span>
+            <input id="t-from" type="text" placeholder="例如:京都站"
+              class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          </label>
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">到达地点</span>
+            <input id="t-to" type="text" placeholder="例如:奈良站"
+              class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          </label>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <label id="t-time-wrap" class="block">
+            <span class="text-xs font-medium text-slate-500">出发时间</span>
+            <input id="t-time" type="time"
+              class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          </label>
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">所需时长</span>
+            <input id="t-duration" type="text" maxlength="20" placeholder="例如:45 分钟"
+              class="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          </label>
+          <label class="block">
+            <span class="text-xs font-medium text-slate-500">预算</span>
+            <div class="mt-1.5 flex gap-2">
+              <input id="t-budget" type="number" min="0" step="0.01" placeholder="0"
+                class="min-w-0 flex-1 rounded-lg border border-slate-200 px-3 py-2 text-right text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+              <select id="t-cur" title="货币"
+                class="w-[92px] shrink-0 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"></select>
+            </div>
+          </label>
+        </div>
+        <label class="block">
+          <span class="text-xs font-medium text-slate-500">详细信息</span>
+          <textarea id="t-detail" rows="3" placeholder="航班号/车次、座位、取票方式、所需证件…"
+            class="mt-1.5 w-full resize-y rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30"></textarea>
+        </label>
+      </div>
+
+      <div class="mt-6 flex justify-end gap-2">
+        <button type="button" id="item-cancel" class="rounded-lg px-4 py-2 text-sm text-slate-500 transition hover:bg-slate-100">取消</button>
+        <button type="submit" class="rounded-lg bg-teal-600 px-5 py-2 text-sm font-medium text-white transition hover:bg-teal-700">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 命名弹窗 -->
+  <dialog id="name-dialog" class="w-[min(92vw,380px)] rounded-2xl p-0 shadow-xl backdrop:bg-slate-900/40">
+    <form id="name-form" class="p-6">
+      <h3 id="name-title" class="text-base font-semibold text-slate-800">计划名称</h3>
+      <p id="name-desc" class="mt-1 text-xs text-slate-500"></p>
+      <input id="name-input" type="text" maxlength="40" required
+        class="mt-4 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+      <div class="mt-5 flex justify-end gap-2">
+        <button type="button" id="name-cancel" class="rounded-lg px-4 py-2 text-sm text-slate-500 transition hover:bg-slate-100">取消</button>
+        <button type="submit" class="rounded-lg bg-teal-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-teal-700">确定</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 灵感池(右侧触碰式抽屉) -->
+  <div id="idea-wrap" class="fixed right-0 top-1/2 z-40 flex -translate-y-1/2 translate-x-[330px] items-start transition-transform duration-300 ease-out">
+    <button id="idea-handle" title="灵感池:记下想去想吃的"
+      class="mt-10 flex shrink-0 flex-col items-center gap-1.5 rounded-l-xl bg-teal-600 px-2 py-4 text-white shadow-lg transition hover:bg-teal-700">
+      <span class="text-base leading-none">💡</span>
+      <span class="text-xs font-medium tracking-wide [writing-mode:vertical-rl]">灵感池</span>
+      <span id="idea-count" class="rounded-full bg-white/25 px-1.5 text-[10px] leading-4">0</span>
+    </button>
+    <aside class="max-h-[82vh] w-[330px] max-w-[86vw] overflow-y-auto rounded-l-2xl bg-white p-5 shadow-2xl ring-1 ring-slate-200">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <h3 class="text-sm font-bold">待选行程 · 灵感池</h3>
+          <p class="mt-0.5 text-xs text-slate-400">想去、想玩、想吃的,先记下来</p>
+        </div>
+        <button id="idea-close" class="h-6 w-6 shrink-0 rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">✕</button>
+      </div>
+
+      <form id="idea-form" class="mt-4 space-y-2">
+        <input id="idea-name" type="text" maxlength="40" placeholder="名称,例如:一乘寺拉面" required
+          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+        <div id="idea-type" class="flex flex-wrap gap-2"></div>
+        <input id="idea-note" type="text" maxlength="80" placeholder="备注:地址、推荐理由(可留空)"
+          class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+        <div id="idea-photo" class="flex"></div>
+        <input id="idea-photo-input" type="file" accept="image/*" class="hidden">
+        <button type="submit" class="w-full rounded-lg bg-teal-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-teal-700">+ 记下来</button>
+      </form>
+
+      <ul id="idea-list" class="mt-4 space-y-2"></ul>
+    </aside>
+  </div>
+
+  <!-- 拖入文件遮罩 -->
+  <div id="drop-mask" class="pointer-events-none fixed inset-0 z-40 hidden items-center justify-center bg-teal-900/40 backdrop-blur-sm">
+    <div class="rounded-2xl border-2 border-dashed border-teal-300 bg-white px-10 py-8 text-center shadow-2xl">
+      <p class="text-2xl">📂</p>
+      <p class="mt-2 text-base font-semibold text-slate-800">松手即可导入</p>
+      <p class="mt-1 text-xs text-slate-500">支持之前导出的 .json 计划文件</p>
+    </div>
+  </div>
+
+  <!-- 图片查看 -->
+  <dialog id="viewer" class="max-h-[92vh] max-w-[94vw] rounded-2xl bg-transparent p-0 backdrop:bg-slate-900/80">
+    <img id="viewer-img" alt="" class="max-h-[92vh] max-w-[94vw] cursor-zoom-out rounded-2xl object-contain">
+  </dialog>
+
+  <!-- 提示气泡 -->
+  <div id="toast-box" class="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const KEY = 'travel-plans-v2';   // { activeId, plans: [...] }
+  const OLD_KEY = 'travel-plan-v1'; // 旧版单计划结构
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const $ = (s) => document.querySelector(s);
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  /* ================= 数据结构 ================= */
+  // 行程状态标签
+  const STATUS = {
+    todo: { label: '未预约/购票', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
+    done: { label: '已预约/购票', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+    none: { label: '无需预约/购票', cls: 'bg-slate-100 text-slate-500 ring-slate-200' },
+  };
+  // 行程种类标签
+  const CATS = {
+    play: { label: '游玩', icon: '🎡', cls: 'bg-sky-50 text-sky-700 ring-sky-200' },
+    food: { label: '餐饮', icon: '🍜', cls: 'bg-orange-50 text-orange-700 ring-orange-200' },
+    stay: { label: '住宿', icon: '🏨', cls: 'bg-indigo-50 text-indigo-700 ring-indigo-200' },
+    shop: { label: '购物', icon: '🛍️', cls: 'bg-pink-50 text-pink-700 ring-pink-200' },
+    other: { label: '其他', icon: '📌', cls: 'bg-slate-100 text-slate-500 ring-slate-200' },
+  };
+  // 交通形式
+  const MODES = {
+    long: ['飞机', '火车/高铁', '巴士', '轮渡', '自驾'],
+    short: ['步行', '公交', '地铁', '骑行', '自驾', '出租'],
+  };
+  const MODE_ICON = {
+    飞机: '✈️', '火车/高铁': '🚄', 巴士: '🚌', 轮渡: '⛴️', 自驾: '🚗',
+    步行: '🚶', 公交: '🚍', 地铁: '🚇', 骑行: '🚲', 出租: '🚕',
+  };
+
+  // 常见货币,rate = 1 单位折合人民币(可在页面上手动修改)
+  const CURRENCIES = {
+    CNY: { symbol: '¥', label: '人民币 CNY', rate: 1 },
+    JPY: { symbol: 'JP¥', label: '日元 JPY', rate: 0.048 },
+    USD: { symbol: '$', label: '美元 USD', rate: 7.1 },
+    EUR: { symbol: '€', label: '欧元 EUR', rate: 7.7 },
+    HKD: { symbol: 'HK$', label: '港币 HKD', rate: 0.91 },
+    TWD: { symbol: 'NT$', label: '新台币 TWD', rate: 0.22 },
+    KRW: { symbol: '₩', label: '韩元 KRW', rate: 0.0052 },
+    THB: { symbol: '฿', label: '泰铢 THB', rate: 0.21 },
+    SGD: { symbol: 'S$', label: '新加坡元 SGD', rate: 5.3 },
+    MYR: { symbol: 'RM', label: '马币 MYR', rate: 1.6 },
+    GBP: { symbol: '£', label: '英镑 GBP', rate: 9.0 },
+    AUD: { symbol: 'A$', label: '澳元 AUD', rate: 4.7 },
+    CHF: { symbol: 'CHF', label: '瑞士法郎 CHF', rate: 8.9 },
+    VND: { symbol: '₫', label: '越南盾 VND', rate: 0.00028 },
+  };
+  const curKey = (c) => (CURRENCIES[c] ? c : 'CNY');
+
+  // 灵感池条目类型
+  const IDEA_TYPES = {
+    place: { label: '目的地', icon: '📍', cat: 'play', cls: 'bg-sky-50 text-sky-700 ring-sky-200' },
+    act: { label: '项目', icon: '🎡', cat: 'play', cls: 'bg-teal-50 text-teal-700 ring-teal-200' },
+    food: { label: '食物', icon: '🍜', cat: 'food', cls: 'bg-orange-50 text-orange-700 ring-orange-200' },
+    thing: { label: '物品', icon: '🛍️', cat: 'shop', cls: 'bg-pink-50 text-pink-700 ring-pink-200' },
+  };
+
+  // 行李标签(可自行增加)与状态
+  const LUG_TAGS = ['衣物', '洗漱', '证件财物', '电子设备'];
+  const LUG_STATUS = {
+    none: { label: '未拥有', cls: 'bg-rose-50 text-rose-600 ring-rose-200' },
+    unpacked: { label: '未装箱', cls: 'bg-amber-50 text-amber-700 ring-amber-200' },
+    packed: { label: '已装箱', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  };
+  const LUG_CYCLE = ['none', 'unpacked', 'packed']; // 点击标签时的循环顺序
+
+  const MAX_PHOTOS = 3;
+  const blankDay = () => ({ id: uid(), title: '', spots: '', notes: '', items: [] });
+
+  const normalizeLug = (r) => ({
+    id: r?.id || uid(),
+    name: r?.name || '',
+    qty: Math.min(999, Math.max(1, Math.floor(Number(r?.qty)) || 1)),
+    tag: String(r?.tag || LUG_TAGS[0]),
+    status: LUG_STATUS[r?.status] ? r.status : 'unpacked',
+  });
+
+  const normalizeTodo = (r) => ({
+    id: r?.id || uid(),
+    title: r?.title || '',
+    due: r?.due || '',
+    detail: r?.detail || '',
+    done: !!r?.done,
+  });
+
+  const normalizeIdea = (r) => ({
+    id: r?.id || uid(),
+    type: IDEA_TYPES[r?.type] ? r.type : 'place',
+    name: r?.name || '',
+    note: r?.note || '',
+    photo: typeof r?.photo === 'string' ? r.photo : '',
+  });
+
+  /** 一条行程或交通,字段缺失时补默认值 */
+  function normalizeItem(raw) {
+    if (raw?.kind === 'transport') {
+      const range = raw.range === 'short' ? 'short' : 'long';
+      return {
+        id: raw.id || uid(), kind: 'transport', range,
+        mode: raw.mode || MODES[range][0],
+        from: raw.from || '', to: raw.to || '',
+        time: range === 'long' ? (raw.time || '') : '', // 出发时间仅长距离需要
+        duration: raw.duration || '', budget: Number(raw.budget) || 0,
+        detail: raw.detail || '',
+        cur: curKey(raw.cur),
+      };
+    }
+    return {
+      id: raw?.id || uid(), kind: 'activity',
+      name: raw?.name || '', time: raw?.time || '', address: raw?.address || '',
+      detail: raw?.detail || '', budget: Number(raw?.budget) || 0,
+      cur: curKey(raw?.cur),
+      cat: CATS[raw?.cat] ? raw.cat : 'play',
+      status: STATUS[raw?.status] ? raw.status : 'todo',
+      photos: Array.isArray(raw?.photos)
+        ? raw.photos.filter((s) => typeof s === 'string' && s).slice(0, MAX_PHOTOS)
+        : [],
+    };
+  }
+  const blankPlan = (name = '未命名计划') => ({
+    id: uid(),
+    name,
+    updatedAt: Date.now(),
+    poster: '',
+    trip: { destination: '', startDate: '', people: 2 },
+    days: [blankDay(), blankDay(), blankDay()],
+    expenses: [],
+    tags: [...LUG_TAGS],
+    luggage: [],
+    todos: [],
+    ideas: [],
+    currency: 'CNY',
+    rates: {},
+  });
+
+  /** 补齐缺失字段,兼容手工改过或旧版本的数据 */
+  function normalizePlan(raw, fallbackName) {
+    const p = blankPlan(fallbackName);
+    if (!raw || typeof raw !== 'object') return p;
+    return {
+      id: raw.id || p.id,
+      name: String(raw.name || fallbackName || p.name),
+      updatedAt: Number(raw.updatedAt) || Date.now(),
+      poster: typeof raw.poster === 'string' ? raw.poster : '',
+      trip: { ...p.trip, ...(raw.trip || {}) },
+      days: Array.isArray(raw.days) && raw.days.length
+        ? raw.days.map((d) => ({
+            id: d.id || uid(), title: d.title || '', spots: d.spots || '', notes: d.notes || '',
+            items: Array.isArray(d.items) ? d.items.map(normalizeItem) : [],
+          }))
+        : p.days,
+      expenses: Array.isArray(raw.expenses)
+        ? raw.expenses.map((e) => ({
+            id: e.id || uid(), name: e.name || '', note: e.note || '',
+            amount: Number(e.amount) || 0, cur: curKey(e.cur),
+          }))
+        : [],
+      ideas: Array.isArray(raw.ideas) ? raw.ideas.map(normalizeIdea) : [],
+      currency: curKey(raw.currency),
+      rates: raw.rates && typeof raw.rates === 'object' ? { ...raw.rates } : {},
+      tags: Array.isArray(raw.tags) && raw.tags.length
+        ? [...new Set(raw.tags.map(String))]
+        : [...LUG_TAGS],
+      luggage: Array.isArray(raw.luggage) ? raw.luggage.map(normalizeLug) : [],
+      todos: Array.isArray(raw.todos) ? raw.todos.map(normalizeTodo) : [],
+    };
+  }
+
+  /** 读取 v2;没有则尝试把 v1 单计划迁移过来 */
+  function loadDB() {
+    try {
+      const db = JSON.parse(localStorage.getItem(KEY));
+      if (db && Array.isArray(db.plans) && db.plans.length) {
+        const plans = db.plans.map((p, i) => normalizePlan(p, `计划 ${i + 1}`));
+        const activeId = plans.some((p) => p.id === db.activeId) ? db.activeId : plans[0].id;
+        return { activeId, plans };
+      }
+    } catch { /* 结构损坏时走下面的分支重建 */ }
+
+    try {
+      const old = JSON.parse(localStorage.getItem(OLD_KEY));
+      if (old && (old.trip || old.days)) {
+        const p = normalizePlan(old, old.trip?.destination || '我的第一个计划');
+        p.id = uid();
+        p.name = old.trip?.destination ? `${old.trip.destination} 旅行` : '我的第一个计划';
+        migrated = true;
+        return { activeId: p.id, plans: [p] };
+      }
+    } catch { /* 忽略,直接建新计划 */ }
+
+    const p = blankPlan('我的第一个计划');
+    return { activeId: p.id, plans: [p] };
+  }
+
+  let migrated = false;
+  let db = loadDB();
+  let plan = db.plans.find((p) => p.id === db.activeId);
+
+  /* ================= 存储 ================= */
+  let timer;
+  function save(msg = '已保存') {
+    clearTimeout(timer);
+    timer = setTimeout(() => flush(msg), 500);
+  }
+  function flush(msg) {
+    clearTimeout(timer);
+    plan.updatedAt = Date.now();
+    db.activeId = plan.id;
+    try {
+      localStorage.setItem(KEY, JSON.stringify(db));
+      const t = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+      $('#save-state').textContent = `✓ 已保存 ${t}`;
+      renderPlanList();
+      if (msg) toast(msg);
+    } catch {
+      $('#save-state').textContent = '⚠ 保存失败';
+      toast('保存失败:本地存储已满,试试减少图片', 'warn');
+    }
+  }
+  addEventListener('beforeunload', () => flush(null));
+
+  /* ================= 提示 & 弹窗 ================= */
+  function toast(text, kind = 'ok') {
+    const box = $('#toast-box');
+    while (box.children.length >= 3) box.firstElementChild.remove();
+    const tone = { ok: 'bg-slate-900', del: 'bg-rose-600', warn: 'bg-amber-600' }[kind];
+    const el = document.createElement('div');
+    el.className = `${tone} translate-y-2 rounded-xl px-4 py-2.5 text-sm font-medium text-white opacity-0 shadow-lg transition-all duration-300`;
+    el.textContent = (kind === 'del' ? '🗑 ' : kind === 'warn' ? '⚠ ' : '✓ ') + text;
+    box.appendChild(el);
+    requestAnimationFrame(() => el.classList.remove('translate-y-2', 'opacity-0'));
+    setTimeout(() => {
+      el.classList.add('translate-y-2', 'opacity-0');
+      setTimeout(() => el.remove(), 300);
+    }, 1900);
+  }
+
+  /* ================= 图片 ================= */
+  /** 缩放并转成 JPEG data URL,避免原图撑爆 localStorage */
+  function compressImage(file, max, quality = 0.72) {
+    return new Promise((resolve, reject) => {
+      if (!file.type.startsWith('image/')) return reject(new Error('不是图片'));
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const scale = Math.min(1, max / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale);
+        c.height = Math.round(img.height * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        resolve(c.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('图片读取失败')); };
+      img.src = url;
+    });
+  }
+
+  function viewImage(src) {
+    $('#viewer-img').src = src;
+    $('#viewer').showModal();
+  }
+  $('#viewer').addEventListener('click', () => $('#viewer').close());
+
+  /** 弹出输入框,确定返回字符串,取消返回 null */
+  function askName(title, desc, value = '') {
+    return new Promise((resolve) => {
+      const dlg = $('#name-dialog');
+      const input = $('#name-input');
+      $('#name-title').textContent = title;
+      $('#name-desc').textContent = desc || '';
+      input.value = value;
+      const finish = (v) => {
+        $('#name-form').onsubmit = dlg.oncancel = $('#name-cancel').onclick = null;
+        dlg.close();
+        resolve(v);
+      };
+      $('#name-form').onsubmit = (e) => {
+        e.preventDefault();
+        const v = input.value.trim();
+        if (v) finish(v);
+      };
+      $('#name-cancel').onclick = () => finish(null);
+      dlg.oncancel = () => finish(null);
+      dlg.showModal();
+      input.select();
+    });
+  }
+
+  /* ================= 工具 ================= */
+  const WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  function dateOf(offset, p = plan) {
+    if (!p.trip.startDate) return null;
+    const d = new Date(p.trip.startDate + 'T00:00:00');
+    if (isNaN(d)) return null;
+    d.setDate(d.getDate() + offset);
+    return d;
+  }
+  const fmtDate = (d) => `${d.getMonth() + 1}月${d.getDate()}日 ${WEEK[d.getDay()]}`;
+  const money = (n) => '¥' + Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+  /** 带货币符号的原币显示 */
+  const fmtCur = (n, cur) =>
+    (CURRENCIES[curKey(cur)].symbol) + Number(n || 0).toLocaleString('zh-CN', { maximumFractionDigits: 2 });
+  /** 1 单位外币折合人民币,优先用计划里手填的汇率 */
+  const rateOf = (p, cur) => {
+    const k = curKey(cur);
+    const manual = Number(p.rates?.[k]);
+    return manual > 0 ? manual : CURRENCIES[k].rate;
+  };
+  const toCNY = (p, n, cur) => (Number(n) || 0) * rateOf(p, cur);
+
+  const ledgerSum = (p) => p.expenses.reduce((s, e) => s + toCNY(p, e.amount, e.cur), 0);
+  const daySum = (p, d) => d.items.reduce((s, i) => s + toCNY(p, i.budget, i.cur), 0);
+  const itemsSum = (p) => p.days.reduce((s, d) => s + daySum(p, d), 0);
+  const sumOf = (p) => ledgerSum(p) + itemsSum(p); // 账单 + 行程内预算,均已折人民币
+
+  /** 这个计划里用到的非人民币货币 */
+  const usedCurrencies = (p) => {
+    const set = new Set([p.currency]);
+    p.days.forEach((d) => d.items.forEach((i) => set.add(curKey(i.cur))));
+    p.expenses.forEach((e) => set.add(curKey(e.cur)));
+    return [...set].filter((c) => c !== 'CNY');
+  };
+
+  const curOptions = (sel) => Object.keys(CURRENCIES)
+    .map((k) => `<option value="${k}"${k === sel ? ' selected' : ''}>${CURRENCIES[k].symbol} ${k}</option>`)
+    .join('');
+
+  /* ================= 渲染 ================= */
+  function renderHero() {
+    const hasPoster = !!plan.poster;
+    $('#hero-bg').style.backgroundImage = hasPoster ? `url("${plan.poster}")` : '';
+    $('#hero-bg').classList.toggle('hidden', !hasPoster);
+    $('#hero-shade').classList.toggle('hidden', !hasPoster);
+    $('#btn-poster').textContent = hasPoster ? '更换海报' : '上传海报';
+    $('#btn-poster-del').classList.toggle('hidden', !hasPoster);
+    $('#btn-poster-view').classList.toggle('hidden', !hasPoster);
+
+    $('#hero-title').textContent = plan.name || '未命名的计划';
+    $('#hero-sub').textContent = plan.trip.destination ? `目的地:${plan.trip.destination}` : '还没设置目的地';
+    const start = dateOf(0), end = dateOf(plan.days.length - 1);
+    $('#hero-date').textContent = start ? `${fmtDate(start)} – ${fmtDate(end)}` : '待定';
+    $('#hero-days').textContent = `${plan.days.length} 天`;
+
+    const ledger = ledgerSum(plan), items = itemsSum(plan), grand = ledger + items;
+    $('#hero-total').textContent = money(grand);
+    $('#hero-per').textContent = money(grand / Math.max(1, Number(plan.trip.people) || 1));
+    $('#expense-total').textContent = money(ledger);
+    $('#items-total').textContent = money(items);
+    $('#grand-total').textContent = money(grand);
+  }
+
+  function renderPlanList() {
+    $('#plan-count').textContent = `${db.plans.length} 个`;
+    $('#plan-list').innerHTML = db.plans.map((p) => {
+      const active = p.id === plan.id;
+      return `
+      <li class="group relative">
+        <button data-open="${p.id}" class="w-full rounded-xl px-3 py-2.5 pr-9 text-left transition ${
+          active ? 'bg-teal-50 ring-1 ring-teal-200' : 'hover:bg-slate-50'}">
+          <span class="block truncate text-sm font-medium ${active ? 'text-teal-800' : 'text-slate-700'}">${esc(p.name)}</span>
+          <span class="mt-0.5 block text-xs ${active ? 'text-teal-600/70' : 'text-slate-400'}">
+            ${p.days.length} 天 · ${money(sumOf(p))}
+          </span>
+        </button>
+        <button data-del-plan="${p.id}" title="删除这个计划"
+          class="absolute right-2 top-3 h-6 w-6 rounded-md text-slate-300 transition hover:bg-rose-50 hover:text-rose-600 focus:opacity-100 lg:opacity-0 lg:group-hover:opacity-100">✕</button>
+      </li>`;
+    }).join('');
+  }
+
+  const FIELD = 'w-full rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm transition placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:ring-2 focus:ring-teal-500/30';
+
+  /** 每条行程/交通右侧的操作按钮 */
+  const rowActions = (dayId, itemId) => {
+    const base = 'h-6 w-6 shrink-0 rounded text-slate-300 transition hover:bg-slate-100 hover:text-slate-600';
+    const btn = (act, icon, title, extra = '') =>
+      `<button data-act="${act}" data-dayid="${dayId}" data-item="${itemId}" title="${title}" class="${base} ${extra}">${icon}</button>`;
+    return `<div class="flex shrink-0 items-center gap-0.5 transition lg:opacity-0 lg:group-hover:opacity-100">
+      ${btn('up', '↑', '上移')}${btn('down', '↓', '下移')}
+      ${btn('edit', '✎', '编辑', 'hover:text-teal-600')}
+      ${btn('del', '✕', '删除', 'hover:bg-rose-50 hover:text-rose-600')}
+    </div>`;
+  };
+
+  function itemRow(d, it) {
+    const price = it.budget > 0
+      ? `<span class="shrink-0 text-xs font-medium tabular-nums text-slate-600" title="${it.cur === 'CNY' ? '' : '折合 ' + money(toCNY(plan, it.budget, it.cur))}">${fmtCur(it.budget, it.cur)}</span>` : '';
+
+    if (it.kind === 'transport') {
+      const route = [it.from, it.to].filter(Boolean).map(esc).join(' → ');
+      return `
+      <li class="group flex items-start gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50/70 px-3 py-2">
+        <span class="w-11 shrink-0 pt-0.5 text-xs font-semibold tabular-nums ${it.time ? 'text-teal-700' : 'text-transparent'}">${it.time || '--:--'}</span>
+        <span class="shrink-0 text-base leading-5">${MODE_ICON[it.mode] || '🚩'}</span>
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-xs">
+            <span class="font-medium text-slate-700">${esc(it.mode)}</span>
+            <span class="text-slate-400"> · ${it.range === 'long' ? '长距离' : '短距离'}</span>
+            ${it.duration ? `<span class="text-slate-400"> · 约 ${esc(it.duration)}</span>` : ''}
+          </p>
+          ${route ? `<p class="truncate text-xs text-slate-500">${route}</p>` : ''}
+          ${it.detail ? `<p class="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-500">${esc(it.detail)}</p>` : ''}
+        </div>
+        ${price}${rowActions(d.id, it.id)}
+      </li>`;
+    }
+
+    const st = STATUS[it.status] || STATUS.todo;
+    const cat = CATS[it.cat] || CATS.other;
+    return `
+    <li class="group flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2.5 transition hover:border-teal-300">
+      <span class="w-11 shrink-0 pt-0.5 text-xs font-semibold tabular-nums ${it.time ? 'text-teal-700' : 'text-slate-300'}">${it.time || '--:--'}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-sm font-medium">${esc(it.name) || '<span class="text-slate-400">未命名行程</span>'}</span>
+          <span class="rounded-full px-2 py-0.5 text-[11px] ring-1 ${cat.cls}">${cat.icon} ${cat.label}</span>
+          <span class="rounded-full px-2 py-0.5 text-[11px] ring-1 ${st.cls}">${st.label}</span>
+        </div>
+        ${it.address ? `<p class="mt-0.5 truncate text-xs text-slate-500">📍 ${esc(it.address)}</p>` : ''}
+        ${it.detail ? `<p class="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-slate-500">${esc(it.detail)}</p>` : ''}
+        ${it.photos.length ? `<div class="mt-2 flex flex-wrap gap-2">${it.photos.map((src) => `
+          <img src="${src}" data-view alt="" loading="lazy"
+            class="h-16 w-20 cursor-zoom-in rounded-lg object-cover ring-1 ring-slate-200 transition hover:ring-teal-400">`).join('')}</div>` : ''}
+      </div>
+      ${price}${rowActions(d.id, it.id)}
+    </li>`;
+  }
+
+  function renderDays() {
+    $('#input-days').value = plan.days.length;
+    $('#day-list').innerHTML = plan.days.map((d, i) => {
+      const date = dateOf(i);
+      const sum = daySum(plan, d);
+      return `
+      <article class="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200 transition hover:ring-teal-200">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <span class="rounded-lg bg-teal-50 px-2.5 py-1 text-xs font-bold text-teal-700">Day ${i + 1}</span>
+            <span class="text-xs text-slate-400">${date ? fmtDate(date) : '未设置日期'}</span>
+            ${sum > 0 ? `<span class="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-500">${money(sum)}</span>` : ''}
+          </div>
+          <button data-del-day="${d.id}" title="删除这一天"
+            class="shrink-0 rounded-lg px-2.5 py-1 text-xs text-slate-400 transition hover:bg-rose-50 hover:text-rose-600">删除</button>
+        </div>
+
+        <input data-day="${d.id}" data-field="title" value="${esc(d.title)}"
+          placeholder="今天的主题,例如:东山一日游" class="mt-4 ${FIELD} font-medium">
+
+        <ol class="mt-3 space-y-2">${d.items.map((it) => itemRow(d, it)).join('')}</ol>
+
+        <div class="mt-3 flex gap-2">
+          <button data-add="activity" data-dayid="${d.id}"
+            class="rounded-lg bg-teal-50 px-3 py-1.5 text-xs font-medium text-teal-700 transition hover:bg-teal-100">+ 添加行程</button>
+          <button data-add="transport" data-dayid="${d.id}"
+            class="rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-slate-600 transition hover:bg-slate-200">+ 添加交通</button>
+        </div>
+
+        ${d.spots ? `<textarea data-day="${d.id}" data-field="spots" rows="2"
+          placeholder="景点与路线" class="mt-3 ${FIELD} resize-y">${esc(d.spots)}</textarea>` : ''}
+        <textarea data-day="${d.id}" data-field="notes" rows="2"
+          placeholder="当天备注:交通、预约、营业时间…" class="mt-3 ${FIELD} resize-y text-slate-600">${esc(d.notes)}</textarea>
+      </article>`;
+    }).join('');
+  }
+
+  /** 把每日行程里填了预算的条目摊平成账目行 */
+  function itemRows() {
+    const rows = [];
+    plan.days.forEach((d, i) => {
+      d.items.forEach((it) => {
+        const amount = Number(it.budget) || 0;
+        if (amount <= 0) return;
+        const isT = it.kind === 'transport';
+        rows.push({
+          day: i + 1,
+          icon: isT ? (MODE_ICON[it.mode] || '🚩') : (CATS[it.cat] || CATS.other).icon,
+          label: isT
+            ? (it.from && it.to ? `${it.from} → ${it.to}` : it.mode)
+            : (it.name || '未命名行程'),
+          amount,
+          cur: curKey(it.cur),
+        });
+      });
+    });
+    return rows;
+  }
+
+  function renderExpenses() {
+    const groupHead = (text, hint) => `
+      <tr class="bg-slate-50/70 text-[11px] uppercase tracking-wider text-slate-400">
+        <td class="px-5 py-2 font-medium">${text}</td>
+        <td class="px-5 py-2 text-right font-normal normal-case tracking-normal">${hint}</td>
+        <td></td>
+      </tr>`;
+    const empty = (text) =>
+      `<tr><td colspan="3" class="px-5 py-5 text-center text-xs text-slate-400">${text}</td></tr>`;
+
+    const cnyHint = (n, cur) => cur === 'CNY' ? ''
+      : `<span class="ml-2 text-[11px] text-slate-400">≈ ${money(toCNY(plan, n, cur))}</span>`;
+
+    const auto = itemRows();
+    const autoHtml = auto.length ? auto.map((r) => `
+      <tr class="text-slate-600">
+        <td class="px-5 py-2.5">
+          <span class="mr-2 rounded bg-slate-100 px-1.5 py-0.5 text-[11px] font-medium text-slate-500">Day ${r.day}</span>
+          <span>${r.icon} ${esc(r.label)}</span>
+        </td>
+        <td class="px-5 py-2.5 text-right tabular-nums">${fmtCur(r.amount, r.cur)}${cnyHint(r.amount, r.cur)}</td>
+        <td></td>
+      </tr>`).join('') : empty('每日行程里还没有填写预算');
+
+    const manualHtml = plan.expenses.length ? plan.expenses.map((e) => `
+      <tr class="transition hover:bg-slate-50/70">
+        <td class="px-5 py-2">
+          <input data-exp="${e.id}" data-field="name" value="${esc(e.name)}" placeholder="项目名称"
+            class="w-full rounded-md border border-transparent px-2 py-1.5 text-sm font-medium transition hover:border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+        </td>
+        <td class="px-5 py-2">
+          <div class="flex items-center justify-end gap-1">
+            <input data-exp="${e.id}" data-field="amount" type="number" step="0.01" min="0" value="${esc(e.amount)}"
+              class="w-24 rounded-md border border-transparent px-2 py-1.5 text-right text-sm tabular-nums transition hover:border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+            <select data-exp="${e.id}" data-field="cur" title="货币"
+              class="w-[86px] shrink-0 rounded-md border border-transparent bg-transparent px-1 py-1.5 text-xs text-slate-500 transition hover:border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+              ${curOptions(curKey(e.cur))}
+            </select>
+          </div>
+          ${e.cur !== 'CNY' ? `<p class="mt-0.5 text-right text-[11px] text-slate-400">≈ ${money(toCNY(plan, e.amount, e.cur))}</p>` : ''}
+        </td>
+        <td class="px-5 py-2 text-center">
+          <button data-del-exp="${e.id}" title="删除"
+            class="h-7 w-7 rounded-md text-slate-300 transition hover:bg-rose-50 hover:text-rose-600">✕</button>
+        </td>
+      </tr>`).join('') : empty('还没有额外花销,用上面的表单添加');
+
+    $('#expense-list').innerHTML =
+      groupHead('来自每日行程', '自动统计,请在行程卡片里修改') + autoHtml +
+      groupHead('额外花销', '可直接编辑') + manualHtml;
+    renderRates();
+    renderHero();
+  }
+
+  /** 汇率编辑区,只列出这个计划实际用到的外币 */
+  function renderRates() {
+    const used = usedCurrencies(plan);
+    $('#rate-box').classList.toggle('hidden', !used.length);
+    if (!used.length) return;
+
+    $('#rate-list').innerHTML = used.map((c) => `
+      <label class="flex items-center gap-2 rounded-lg bg-slate-50 px-3 py-2">
+        <span class="min-w-0 flex-1 truncate text-xs text-slate-600">1 ${CURRENCIES[c].label}</span>
+        <span class="text-xs text-slate-400">=</span>
+        <input data-rate="${c}" type="number" min="0" step="0.000001" value="${rateOf(plan, c)}"
+          class="w-24 rounded-md border border-slate-200 px-2 py-1 text-right text-xs tabular-nums transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+        <span class="text-xs text-slate-400">元</span>
+      </label>`).join('');
+
+    renderCurBreakdown();
+  }
+
+  /** 分币种合计,例如「JP¥52,000 ≈ ¥2,496」 */
+  function renderCurBreakdown() {
+    const parts = usedCurrencies(plan).map((c) => {
+      const raw = plan.days.reduce((s, d) => s + d.items.reduce((t, i) =>
+        t + (curKey(i.cur) === c ? (Number(i.budget) || 0) : 0), 0), 0)
+        + plan.expenses.reduce((s, e) => s + (curKey(e.cur) === c ? (Number(e.amount) || 0) : 0), 0);
+      return raw > 0 ? `${fmtCur(raw, c)} ≈ ${money(toCNY(plan, raw, c))}` : '';
+    }).filter(Boolean);
+    $('#rate-cny').textContent = parts.length ? `分币种合计:${parts.join(' · ')}` : '';
+  }
+
+  // 输入过程中只更新数字,编辑完成(change)后再整体重绘,避免输入框被重建
+  $('#rate-list').addEventListener('input', (e) => {
+    const el = e.target.closest('[data-rate]');
+    if (!el) return;
+    const v = Number(el.value);
+    plan.rates[el.dataset.rate] = v > 0 ? v : CURRENCIES[el.dataset.rate].rate;
+    renderDays();
+    renderHero();
+    renderCurBreakdown();
+    renderPlanList();
+    save('汇率已更新');
+  });
+  $('#rate-list').addEventListener('change', (e) => {
+    if (e.target.closest('[data-rate]')) renderExpenses();
+  });
+
+  /* ---------- 行李清单 ---------- */
+  function renderLuggage() {
+    // 标签下拉(尽量保留用户当前的选择)
+    const sel = $('#lug-tag');
+    const keep = sel.value;
+    sel.innerHTML = plan.tags.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+    if (plan.tags.includes(keep)) sel.value = keep;
+
+    const packed = plan.luggage.filter((x) => x.status === 'packed').length;
+    const total = plan.luggage.length;
+    $('#lug-progress').textContent = `${packed} / ${total} 已装箱`;
+    $('#lug-bar').style.width = total ? `${(packed / total) * 100}%` : '0%';
+
+    if (!total) {
+      $('#lug-list').innerHTML = '<p class="py-6 text-center text-xs text-slate-400">还没有行李,用上面的表单添加</p>';
+      return;
+    }
+
+    // 按标签分组,自定义标签排在默认标签之后,孤立标签兜底显示
+    const order = [...plan.tags, ...new Set(plan.luggage.map((x) => x.tag))];
+    const groups = [...new Set(order)].filter((t) => plan.luggage.some((x) => x.tag === t));
+
+    $('#lug-list').innerHTML = groups.map((tag) => {
+      const rows = plan.luggage.filter((x) => x.tag === tag);
+      return `
+      <div>
+        <div class="flex items-baseline gap-2">
+          <h4 class="text-xs font-bold text-slate-500">${esc(tag)}</h4>
+          <span class="text-[11px] text-slate-400">${rows.length} 件</span>
+        </div>
+        <ul class="mt-2 space-y-1.5">${rows.map((x) => {
+          const st = LUG_STATUS[x.status];
+          return `
+          <li class="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 transition hover:border-teal-300">
+            <button data-lug-st="${x.id}" title="点击切换状态"
+              class="shrink-0 rounded-full px-2 py-0.5 text-[11px] ring-1 transition ${st.cls}">${st.label}</button>
+            <input data-lug="${x.id}" data-field="name" value="${esc(x.name)}" placeholder="物品名称"
+              class="min-w-0 flex-1 rounded-md border border-transparent px-2 py-1 text-sm transition hover:border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+            <input data-lug="${x.id}" data-field="qty" type="number" min="1" max="999" value="${x.qty}" title="数量"
+              class="w-14 shrink-0 rounded-md border border-transparent px-2 py-1 text-right text-sm tabular-nums transition hover:border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+            <select data-lug="${x.id}" data-field="tag" title="标签"
+              class="w-24 shrink-0 rounded-md border border-transparent bg-transparent px-1 py-1 text-xs text-slate-500 transition hover:border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+              ${[...new Set([...plan.tags, x.tag])].map((t) =>
+                `<option value="${esc(t)}" ${t === x.tag ? 'selected' : ''}>${esc(t)}</option>`).join('')}
+            </select>
+            <button data-del-lug="${x.id}" title="删除"
+              class="h-6 w-6 shrink-0 rounded text-slate-300 transition hover:bg-rose-50 hover:text-rose-600">✕</button>
+          </li>`;
+        }).join('')}</ul>
+      </div>`;
+    }).join('');
+  }
+
+  /* ---------- 待做事项 ---------- */
+  function renderTodos() {
+    const done = plan.todos.filter((t) => t.done).length;
+    $('#todo-progress').textContent = `${done} / ${plan.todos.length} 已完成`;
+
+    if (!plan.todos.length) {
+      $('#todo-list').innerHTML = '<li class="py-6 text-center text-xs text-slate-400">还没有待做事项</li>';
+      return;
+    }
+
+    const today = new Date().toLocaleDateString('sv').slice(0, 10);
+    $('#todo-list').innerHTML = plan.todos.map((t) => {
+      const late = t.due && !t.done && t.due < today;
+      return `
+      <li class="flex items-start gap-3 rounded-xl border px-3 py-2.5 transition ${
+        t.done ? 'border-slate-100 bg-slate-50/60' : late ? 'border-rose-200 bg-rose-50/40' : 'border-slate-200 hover:border-teal-300'}">
+        <button data-todo-done="${t.id}" title="${t.done ? '标记为未完成' : '标记为完成'}"
+          class="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border-2 text-xs transition ${
+            t.done ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-slate-300 text-transparent hover:border-emerald-400'}">✓</button>
+        <div class="min-w-0 flex-1">
+          <input data-todo="${t.id}" data-field="title" value="${esc(t.title)}" placeholder="任务名称"
+            class="w-full rounded-md border border-transparent px-2 py-1 text-sm font-medium transition hover:border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 ${
+              t.done ? 'text-slate-400 line-through' : ''}">
+          <div class="mt-1 flex flex-wrap items-center gap-2">
+            <input data-todo="${t.id}" data-field="due" type="date" value="${esc(t.due)}" title="最晚完成日期"
+              class="w-[150px] rounded-md border border-transparent px-2 py-1 text-xs transition hover:border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30 ${
+                late ? 'font-medium text-rose-600' : 'text-slate-500'}">
+            ${late ? '<span class="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-medium text-rose-600">已逾期</span>' : ''}
+            <input data-todo="${t.id}" data-field="detail" value="${esc(t.detail)}" placeholder="详情"
+              class="min-w-0 flex-1 rounded-md border border-transparent px-2 py-1 text-xs text-slate-500 transition hover:border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          </div>
+        </div>
+        <button data-del-todo="${t.id}" title="删除"
+          class="h-6 w-6 shrink-0 rounded text-slate-300 transition hover:bg-rose-50 hover:text-rose-600">✕</button>
+      </li>`;
+    }).join('');
+  }
+
+  function renderAll() {
+    $('#input-plan-name').value = plan.name;
+    $('#input-currency').value = plan.currency;
+    $('#exp-cur').value = plan.currency;
+    document.querySelectorAll('[data-trip]').forEach((el) => {
+      el.value = plan.trip[el.dataset.trip] ?? '';
+    });
+    renderDays();
+    renderExpenses();
+    renderLuggage();
+    renderTodos();
+    renderIdeas();
+    renderPlanList();
+  }
+
+  /* ================= 计划管理 ================= */
+  function openPlan(id, msg) {
+    if (id === plan.id) return;
+    flush(null);
+    plan = db.plans.find((p) => p.id === id);
+    db.activeId = plan.id;
+    renderAll();
+    flush(null);
+    if (msg) toast(msg);
+    scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function addPlan(newPlan, msg) {
+    db.plans.unshift(newPlan);
+    plan = newPlan;
+    db.activeId = plan.id;
+    renderAll();
+    flush(null);
+    toast(msg);
+    scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  // 新建空白计划
+  $('#new-plan-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('#new-plan-name').value.trim();
+    if (!name) return toast('请先输入计划名称', 'warn');
+    $('#new-plan-name').value = '';
+    addPlan(blankPlan(name), `已新建「${name}」`);
+  });
+
+  // 另存为(克隆当前计划)
+  $('#btn-save-as').addEventListener('click', async () => {
+    const name = await askName('另存为新计划', '会复制当前计划的全部行程与预算,原计划保持不变。', `${plan.name} 副本`);
+    if (!name) return;
+    const copy = normalizePlan(JSON.parse(JSON.stringify(plan)), name);
+    copy.id = uid();
+    copy.name = name;
+    copy.days.forEach((d) => (d.id = uid()));
+    copy.expenses.forEach((x) => (x.id = uid()));
+    addPlan(copy, `已另存为「${name}」`);
+  });
+
+  // 切换 / 删除计划
+  $('#plan-list').addEventListener('click', (e) => {
+    const open = e.target.closest('[data-open]');
+    if (open) return openPlan(open.dataset.open, `已切换到「${db.plans.find((p) => p.id === open.dataset.open).name}」`);
+
+    const del = e.target.closest('[data-del-plan]');
+    if (!del) return;
+    const i = db.plans.findIndex((p) => p.id === del.dataset.delPlan);
+    const target = db.plans[i];
+    if (!confirm(`确定删除计划「${target.name}」?此操作无法撤销。`)) return;
+    db.plans.splice(i, 1);
+    if (!db.plans.length) db.plans.push(blankPlan('我的旅行计划'));
+    if (target.id === plan.id) plan = db.plans[Math.min(i, db.plans.length - 1)];
+    db.activeId = plan.id;
+    renderAll();
+    flush(null);
+    toast(`已删除「${target.name}」`, 'del');
+  });
+
+  /* ================= 海报 ================= */
+  $('#btn-poster').addEventListener('click', () => $('#poster-input').click());
+  $('#btn-poster-view').addEventListener('click', () => viewImage(plan.poster));
+  $('#poster-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      plan.poster = await compressImage(file, 1600, 0.75);
+      renderHero();
+      flush(null);
+      toast('海报已更新');
+    } catch {
+      toast('图片读取失败', 'warn');
+    }
+  });
+  $('#btn-poster-del').addEventListener('click', () => {
+    plan.poster = '';
+    renderHero();
+    flush(null);
+    toast('已移除海报', 'del');
+  });
+
+  /* ================= 基本信息 ================= */
+  $('#input-plan-name').addEventListener('input', (e) => {
+    plan.name = e.target.value;
+    renderHero();
+    renderPlanList();
+    save('名称已保存');
+  });
+
+  document.querySelectorAll('[data-trip]').forEach((el) => {
+    const key = el.dataset.trip;
+    el.addEventListener('input', () => {
+      plan.trip[key] = el.type === 'number' ? Number(el.value) : el.value;
+      if (key === 'startDate') renderDays();
+      renderHero();
+      save();
+    });
+  });
+
+  /* ================= 天数增减 ================= */
+  function setDayCount(n) {
+    n = Math.min(60, Math.max(1, Math.floor(n) || 1));
+    const cur = plan.days.length;
+    if (n === cur) return true;
+    if (n < cur) {
+      const dirty = plan.days.slice(n).some((d) => d.title || d.spots || d.notes || d.items.length);
+      if (dirty && !confirm(`Day ${n + 1} – Day ${cur} 已填写的内容将被删除,确定继续?`)) return false;
+      plan.days.length = n;
+      toast(`已删除 ${cur - n} 天`, 'del');
+    } else {
+      while (plan.days.length < n) plan.days.push(blankDay());
+      toast(`已添加 ${n - cur} 天`);
+    }
+    renderDays();
+    renderExpenses();
+    flush(null);
+    return true;
+  }
+
+  $('#input-days').addEventListener('change', (e) => {
+    if (!setDayCount(e.target.value)) e.target.value = plan.days.length;
+  });
+  $('#btn-add-day').addEventListener('click', () => {
+    setDayCount(plan.days.length + 1);
+    $('#day-list').lastElementChild?.querySelector('input')?.focus();
+  });
+
+  /* ================= 行程编辑 ================= */
+  $('#day-list').addEventListener('input', (e) => {
+    const el = e.target.closest('[data-day]');
+    if (!el) return;
+    const day = plan.days.find((d) => d.id === el.dataset.day);
+    if (day) {
+      day[el.dataset.field] = el.value;
+      save();
+    }
+  });
+
+  $('#day-list').addEventListener('click', (e) => {
+    // 点击缩略图放大
+    if (e.target.matches('img[data-view]')) return viewImage(e.target.src);
+
+    // 添加行程 / 交通
+    const add = e.target.closest('[data-add]');
+    if (add) return openItem(add.dataset.dayid, add.dataset.add, null);
+
+    // 行程条目:上移 / 下移 / 编辑 / 删除
+    const act = e.target.closest('[data-act]');
+    if (act) {
+      const day = plan.days.find((d) => d.id === act.dataset.dayid);
+      const idx = day.items.findIndex((x) => x.id === act.dataset.item);
+      const it = day.items[idx];
+      const kindName = it.kind === 'transport' ? '交通' : '行程';
+      if (act.dataset.act === 'edit') return openItem(day.id, it.kind, it);
+      if (act.dataset.act === 'del') {
+        day.items.splice(idx, 1);
+        toast(`已删除${kindName}「${it.name || it.mode || ''}」`, 'del');
+      } else {
+        const to = idx + (act.dataset.act === 'up' ? -1 : 1);
+        if (to < 0 || to >= day.items.length) return;
+        day.items.splice(to, 0, day.items.splice(idx, 1)[0]);
+      }
+      renderDays();
+      renderExpenses();
+      renderPlanList();
+      return flush(null);
+    }
+
+    const btn = e.target.closest('[data-del-day]');
+    if (!btn) return;
+    if (plan.days.length === 1) return toast('至少保留一天', 'warn');
+    const i = plan.days.findIndex((d) => d.id === btn.dataset.delDay);
+    const d = plan.days[i];
+    if ((d.title || d.spots || d.notes || d.items.length) && !confirm(`确定删除 Day ${i + 1}?`)) return;
+    plan.days.splice(i, 1);
+    renderDays();
+    renderExpenses();
+    flush(null);
+    toast(`已删除 Day ${i + 1}`, 'del');
+  });
+
+  /* ================= 行程 / 交通 弹窗 ================= */
+  let ctx = null; // { dayId, itemId, kind, status, range, mode }
+
+  const chipCls = (on) => 'rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition ' +
+    (on ? 'bg-teal-600 text-white ring-teal-600' : 'bg-white text-slate-600 ring-slate-200 hover:bg-slate-50');
+
+  function chips(box, options, current, onPick) {
+    box.innerHTML = '';
+    options.forEach((o) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = o.label;
+      b.className = chipCls(o.value === current);
+      b.onclick = () => onPick(o.value);
+      box.appendChild(b);
+    });
+  }
+
+  function renderPhotos() {
+    const add = ctx.photos.length < MAX_PHOTOS
+      ? `<button type="button" data-photo-add
+           class="flex h-20 w-24 shrink-0 flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-slate-200 text-xs text-slate-400 transition hover:border-teal-300 hover:text-teal-600">
+           <span class="text-base">+</span>添加图片</button>`
+      : '';
+    $('#a-photos').innerHTML = ctx.photos.map((src, i) => `
+      <div class="relative h-20 w-24 shrink-0 overflow-hidden rounded-lg ring-1 ring-slate-200">
+        <img src="${src}" alt="" class="h-full w-full object-cover">
+        <button type="button" data-photo-rm="${i}" title="移除"
+          class="absolute right-1 top-1 h-5 w-5 rounded-full bg-slate-900/60 text-[10px] leading-5 text-white transition hover:bg-rose-600">✕</button>
+      </div>`).join('') + add;
+  }
+
+  $('#a-photos').addEventListener('click', (e) => {
+    if (e.target.closest('[data-photo-add]')) return $('#a-photo-input').click();
+    const rm = e.target.closest('[data-photo-rm]');
+    if (!rm) return;
+    ctx.photos.splice(Number(rm.dataset.photoRm), 1);
+    renderPhotos();
+  });
+
+  $('#a-photo-input').addEventListener('change', async (e) => {
+    const picked = [...e.target.files];
+    e.target.value = '';
+    const room = MAX_PHOTOS - ctx.photos.length;
+    if (picked.length > room) toast(`最多 ${MAX_PHOTOS} 张,只保留前 ${room} 张`, 'warn');
+    for (const f of picked.slice(0, room)) {
+      try {
+        ctx.photos.push(await compressImage(f, 1200, 0.7));
+      } catch {
+        toast(`「${f.name}」读取失败`, 'warn');
+      }
+    }
+    renderPhotos();
+  });
+
+  function renderActivityChips() {
+    chips($('#a-cat'),
+      Object.entries(CATS).map(([value, c]) => ({ value, label: `${c.icon} ${c.label}` })),
+      ctx.cat,
+      (v) => { ctx.cat = v; renderActivityChips(); });
+    chips($('#a-status'),
+      Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label })),
+      ctx.status,
+      (v) => { ctx.status = v; renderActivityChips(); });
+  }
+
+  function renderModeChips() {
+    const list = MODES[ctx.range];
+    const custom = !list.includes(ctx.mode);
+    chips($('#t-range'),
+      [{ value: 'long', label: '长距离' }, { value: 'short', label: '短距离' }],
+      ctx.range,
+      (v) => {
+        ctx.range = v;
+        if (!custom && !MODES[v].includes(ctx.mode)) ctx.mode = MODES[v][0];
+        renderModeChips();
+      });
+    chips($('#t-mode'),
+      [...list.map((m) => ({ value: m, label: `${MODE_ICON[m] || ''} ${m}` })), { value: '其他', label: '其他' }],
+      custom ? '其他' : ctx.mode,
+      (v) => { ctx.mode = v === '其他' ? ($('#t-mode-other').value.trim() || '其他') : v; renderModeChips(); });
+
+    const other = $('#t-mode-other');
+    other.classList.toggle('hidden', !custom);
+    if (custom && document.activeElement !== other) other.value = ctx.mode === '其他' ? '' : ctx.mode;
+
+    $('#t-time-wrap').classList.toggle('hidden', ctx.range !== 'long');
+  }
+
+  $('#t-mode-other').addEventListener('input', (e) => {
+    if (ctx) ctx.mode = e.target.value.trim() || '其他';
+  });
+
+  /** item 为 null 表示新增 */
+  function openItem(dayId, kind, item) {
+    ctx = {
+      dayId, kind,
+      itemId: item?.id || null,
+      cat: item?.cat || 'play',
+      status: item?.status || 'todo',
+      photos: [...(item?.photos || [])],
+      range: item?.range || 'long',
+      mode: item?.mode || MODES.long[0],
+    };
+    const isAct = kind === 'activity';
+    $('#item-title').textContent = `${item ? '编辑' : '添加'}${isAct ? '行程' : '交通'}`;
+    document.querySelectorAll('[data-pane]').forEach((el) => {
+      el.classList.toggle('hidden', el.dataset.pane !== kind);
+    });
+
+    if (isAct) {
+      $('#a-name').value = item?.name || '';
+      $('#a-time').value = item?.time || '';
+      $('#a-address').value = item?.address || '';
+      $('#a-detail').value = item?.detail || '';
+      $('#a-budget').value = item?.budget || '';
+      $('#a-cur').value = curKey(item ? item.cur : plan.currency);
+      renderActivityChips();
+      renderPhotos();
+    } else {
+      $('#t-from').value = item?.from || '';
+      $('#t-to').value = item?.to || '';
+      $('#t-time').value = item?.time || '';
+      $('#t-duration').value = item?.duration || '';
+      $('#t-budget').value = item?.budget || '';
+      $('#t-cur').value = curKey(item ? item.cur : plan.currency);
+      $('#t-detail').value = item?.detail || '';
+      renderModeChips();
+    }
+
+    $('#item-dialog').showModal();
+    (isAct ? $('#a-name') : $('#t-from')).focus();
+  }
+
+  $('#item-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const day = plan.days.find((d) => d.id === ctx.dayId);
+    if (!day) return;
+
+    let data;
+    if (ctx.kind === 'activity') {
+      const name = $('#a-name').value.trim();
+      if (!name) return toast('请填写行程名称', 'warn');
+      data = {
+        kind: 'activity', name, cat: ctx.cat, status: ctx.status,
+        time: $('#a-time').value,
+        address: $('#a-address').value.trim(),
+        detail: $('#a-detail').value.trim(),
+        budget: Number($('#a-budget').value) || 0,
+        cur: curKey($('#a-cur').value),
+        photos: ctx.photos.slice(0, MAX_PHOTOS),
+      };
+    } else {
+      data = {
+        kind: 'transport', range: ctx.range, mode: ctx.mode,
+        from: $('#t-from').value.trim(),
+        to: $('#t-to').value.trim(),
+        time: ctx.range === 'long' ? $('#t-time').value : '',
+        duration: $('#t-duration').value.trim(),
+        budget: Number($('#t-budget').value) || 0,
+        cur: curKey($('#t-cur').value),
+        detail: $('#t-detail').value.trim(),
+      };
+    }
+
+    const existing = ctx.itemId && day.items.find((x) => x.id === ctx.itemId);
+    if (existing) Object.assign(existing, normalizeItem({ ...data, id: existing.id }));
+    else day.items.push(normalizeItem({ ...data, id: uid() }));
+
+    $('#item-dialog').close();
+    renderDays();
+    renderExpenses();
+    renderPlanList();
+    flush(null);
+    toast(`${existing ? '已更新' : '已添加'}${ctx.kind === 'activity' ? '行程' : '交通'}`);
+    ctx = null;
+  });
+
+  $('#item-cancel').addEventListener('click', () => $('#item-dialog').close());
+
+  /* ================= 预算编辑 ================= */
+  $('#expense-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('#exp-name').value.trim();
+    const amount = Number($('#exp-amount').value);
+    if (!name || !(amount >= 0)) return toast('请填写项目名称和金额', 'warn');
+    plan.expenses.push({ id: uid(), name, note: '', amount, cur: curKey($('#exp-cur').value) });
+    e.target.reset();
+    $('#exp-name').focus();
+    renderExpenses();
+    flush(null);
+    toast(`已添加「${name}」${money(amount)}`);
+  });
+
+  $('#expense-list').addEventListener('input', (e) => {
+    const el = e.target.closest('[data-exp]');
+    if (!el) return;
+    const item = plan.expenses.find((x) => x.id === el.dataset.exp);
+    if (!item) return;
+    const f = el.dataset.field;
+    item[f] = f === 'amount' ? Number(el.value) || 0 : el.value;
+    if (f === 'cur') {
+      item.cur = curKey(el.value);
+      renderExpenses(); // 换币种要重算折算提示
+    } else if (f === 'amount') {
+      renderHero();
+      renderCurBreakdown();
+      renderPlanList();
+    }
+    save();
+  });
+
+  $('#expense-list').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-del-exp]');
+    if (!btn) return;
+    const i = plan.expenses.findIndex((x) => x.id === btn.dataset.delExp);
+    const [removed] = plan.expenses.splice(i, 1);
+    renderExpenses();
+    flush(null);
+    toast(`已删除「${removed.name || '未命名'}」`, 'del');
+  });
+
+  /* 快捷标签 */
+  ['临时打车', '零食饮料', '纪念品', '行李寄存', '门票加购', '其他'].forEach((label) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = label;
+    b.className = 'rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600 transition hover:bg-teal-50 hover:text-teal-700';
+    b.addEventListener('click', () => {
+      $('#exp-name').value = label;
+      $('#exp-amount').focus();
+    });
+    $('#quick-tags').appendChild(b);
+  });
+
+  /* ================= 本地文件导出 ================= */
+  const FILE_TAG = 'travel-plan';
+  const today = () => new Date().toLocaleDateString('sv').slice(0, 10); // YYYY-MM-DD
+  /** 去掉 Windows/macOS 文件名里的非法字符 */
+  const safeName = (s) => (String(s || '').replace(/[\\/:*?"<>|\r\n]+/g, '_').trim().slice(0, 40) || '未命名');
+
+  function download(filename, text) {
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function exportPlans(plans, filename) {
+    flush(null); // 先落盘,确保导出的是最新内容
+    download(filename, JSON.stringify({
+      app: FILE_TAG,
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      plans: JSON.parse(JSON.stringify(plans)),
+    }, null, 2));
+  }
+
+  $('#btn-export').addEventListener('click', () => {
+    const filename = `travel-plan-${safeName(plan.name)}.json`;
+    exportPlans([plan], filename);
+    toast(`已导出 ${filename}`);
+  });
+
+  $('#btn-export-all').addEventListener('click', () => {
+    const filename = `travel-plans-备份-${today()}.json`;
+    exportPlans(db.plans, filename);
+    toast(`已导出全部 ${db.plans.length} 个计划`);
+  });
+
+  /* ================= 本地文件导入 ================= */
+  /** 兼容单计划导出、全量备份、旧版裸数据等几种文件结构 */
+  function extractPlans(raw) {
+    const out = [];
+    const take = (o) => {
+      if (o && typeof o === 'object' && (o.trip || o.days || o.expenses)) out.push(o);
+    };
+    if (Array.isArray(raw)) raw.forEach(take);
+    else if (Array.isArray(raw?.plans)) raw.plans.forEach(take);
+    else if (raw?.plan) take(raw.plan);
+    else take(raw);
+    return out;
+  }
+
+  function uniqueName(name) {
+    const taken = new Set(db.plans.map((p) => p.name));
+    if (!taken.has(name)) return name;
+    let i = 2;
+    while (taken.has(`${name} (${i})`)) i++;
+    return `${name} (${i})`;
+  }
+
+  async function importFiles(files) {
+    const added = [];
+    for (const file of files) {
+      let found;
+      try {
+        found = extractPlans(JSON.parse(await file.text()));
+      } catch {
+        toast(`「${file.name}」不是有效的 JSON 文件`, 'warn');
+        continue;
+      }
+      if (!found.length) {
+        toast(`「${file.name}」里没有可识别的计划数据`, 'warn');
+        continue;
+      }
+      found.forEach((raw) => {
+        const p = normalizePlan(raw, file.name.replace(/\.json$/i, ''));
+        p.id = uid();                       // 重新生成 id,避免和已有计划冲突
+        p.name = uniqueName(p.name);        // 同名时自动加 (2)
+        p.days.forEach((d) => (d.id = uid()));
+        p.expenses.forEach((e) => (e.id = uid()));
+        db.plans.unshift(p);
+        added.push(p);
+      });
+    }
+    if (!added.length) return;
+    plan = added[0];
+    db.activeId = plan.id;
+    renderAll();
+    flush(null);
+    toast(added.length === 1 ? `已导入「${plan.name}」` : `已导入 ${added.length} 个计划`);
+    scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  $('#btn-import').addEventListener('click', () => $('#file-input').click());
+  $('#file-input').addEventListener('change', (e) => {
+    importFiles([...e.target.files]);
+    e.target.value = ''; // 允许重复选择同一个文件
+  });
+
+  /* 把 .json 文件拖到页面任意位置导入 */
+  const mask = $('#drop-mask');
+  let dragDepth = 0;
+  const showMask = (show) => {
+    mask.classList.toggle('hidden', !show);
+    mask.classList.toggle('flex', show);
+  };
+  addEventListener('dragenter', (e) => {
+    if (!e.dataTransfer?.types?.includes('Files')) return;
+    dragDepth++;
+    showMask(true);
+  });
+  addEventListener('dragleave', () => {
+    if (--dragDepth <= 0) { dragDepth = 0; showMask(false); }
+  });
+  addEventListener('dragover', (e) => e.preventDefault());
+  addEventListener('drop', (e) => {
+    e.preventDefault();
+    dragDepth = 0;
+    showMask(false);
+    const files = [...(e.dataTransfer?.files || [])].filter((f) => /\.json$/i.test(f.name));
+    if (files.length) importFiles(files);
+    else toast('请拖入 .json 计划文件', 'warn');
+  });
+
+  /* ================= 行李清单 ================= */
+  $('#lug-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('#lug-name').value.trim();
+    if (!name) return toast('请填写物品名称', 'warn');
+    plan.luggage.push(normalizeLug({
+      name,
+      qty: $('#lug-qty').value,
+      tag: $('#lug-tag').value,
+      status: $('#lug-status').value,
+    }));
+    $('#lug-name').value = '';
+    $('#lug-qty').value = 1;
+    $('#lug-name').focus();
+    renderLuggage();
+    flush(null);
+    toast(`已添加「${name}」`);
+  });
+
+  $('#btn-add-tag').addEventListener('click', async () => {
+    const tag = await askName('新建行李标签', '例如:药品、母婴、户外装备。', '');
+    if (!tag) return;
+    if (plan.tags.includes(tag)) return toast('这个标签已存在', 'warn');
+    plan.tags.push(tag);
+    renderLuggage();
+    $('#lug-tag').value = tag;
+    flush(null);
+    toast(`已新建标签「${tag}」`);
+  });
+
+  $('#lug-list').addEventListener('click', (e) => {
+    const cy = e.target.closest('[data-lug-st]');
+    if (cy) {
+      const x = plan.luggage.find((i) => i.id === cy.dataset.lugSt);
+      x.status = LUG_CYCLE[(LUG_CYCLE.indexOf(x.status) + 1) % LUG_CYCLE.length];
+      renderLuggage();
+      return flush(null);
+    }
+    const del = e.target.closest('[data-del-lug]');
+    if (!del) return;
+    const i = plan.luggage.findIndex((x) => x.id === del.dataset.delLug);
+    const [removed] = plan.luggage.splice(i, 1);
+    renderLuggage();
+    flush(null);
+    toast(`已删除「${removed.name || '未命名'}」`, 'del');
+  });
+
+  $('#lug-list').addEventListener('input', (e) => {
+    const el = e.target.closest('[data-lug]');
+    if (!el) return;
+    const x = plan.luggage.find((i) => i.id === el.dataset.lug);
+    if (!x) return;
+    const f = el.dataset.field;
+    if (f === 'qty') x.qty = Math.min(999, Math.max(1, Math.floor(Number(el.value)) || 1));
+    else x[f] = el.value;
+    if (f === 'tag') renderLuggage(); // 换标签要重新分组
+    save();
+  });
+
+  /* ================= 待做事项 ================= */
+  $('#todo-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const title = $('#todo-title').value.trim();
+    if (!title) return toast('请填写任务名称', 'warn');
+    plan.todos.push(normalizeTodo({
+      title,
+      due: $('#todo-due').value,
+      detail: $('#todo-detail').value.trim(),
+    }));
+    e.target.reset();
+    $('#todo-title').focus();
+    renderTodos();
+    flush(null);
+    toast(`已添加「${title}」`);
+  });
+
+  $('#todo-list').addEventListener('click', (e) => {
+    const tick = e.target.closest('[data-todo-done]');
+    if (tick) {
+      const t = plan.todos.find((x) => x.id === tick.dataset.todoDone);
+      t.done = !t.done;
+      renderTodos();
+      flush(null);
+      return toast(t.done ? `已完成「${t.title || '任务'}」` : '已标记为未完成');
+    }
+    const del = e.target.closest('[data-del-todo]');
+    if (!del) return;
+    const i = plan.todos.findIndex((x) => x.id === del.dataset.delTodo);
+    const [removed] = plan.todos.splice(i, 1);
+    renderTodos();
+    flush(null);
+    toast(`已删除「${removed.title || '未命名'}」`, 'del');
+  });
+
+  $('#todo-list').addEventListener('input', (e) => {
+    const el = e.target.closest('[data-todo]');
+    if (!el) return;
+    const t = plan.todos.find((x) => x.id === el.dataset.todo);
+    if (!t) return;
+    t[el.dataset.field] = el.value;
+    save();
+  });
+
+  // 日期编辑完成后再重绘,避免正在输入时日期控件被重建
+  $('#todo-list').addEventListener('change', (e) => {
+    if (e.target.matches('[data-todo][data-field="due"]')) renderTodos();
+  });
+
+  /* ================= 灵感池 ================= */
+  let ideaType = 'place';
+  let ideaPinned = false;
+  let ideaPhoto = '';        // 新建表单里暂存的示意图
+  let ideaPhotoFor = null;   // null = 填给新建表单,否则是已有条目的 id
+
+  const ideaWrap = $('#idea-wrap');
+  const openIdea = (on) => {
+    ideaWrap.classList.toggle('translate-x-[330px]', !on);
+    ideaWrap.classList.toggle('translate-x-0', on);
+  };
+  const ideaIsOpen = () => !ideaWrap.classList.contains('translate-x-[330px]');
+  /** 面板里还有输入焦点时不收回,否则打字过程会被藏起来 */
+  const ideaBusy = () => ideaPinned || ideaWrap.contains(document.activeElement);
+
+  ideaWrap.addEventListener('mouseenter', () => openIdea(true));
+  ideaWrap.addEventListener('mouseleave', () => { if (!ideaBusy()) openIdea(false); });
+
+  // 一旦在面板里点击或聚焦,就钉住,直到点外面 / Esc / ✕
+  ideaWrap.addEventListener('focusin', (e) => {
+    if (e.target === $('#idea-handle')) return; // 把手由下面的 click 单独处理
+    ideaPinned = true;
+    openIdea(true);
+  });
+
+  $('#idea-handle').addEventListener('click', () => {
+    const next = !ideaIsOpen() || !ideaPinned;
+    ideaPinned = next;
+    openIdea(next);
+  });
+  $('#idea-close').addEventListener('click', () => {
+    ideaPinned = false;
+    openIdea(false);
+  });
+
+  // 点击面板外收起
+  document.addEventListener('pointerdown', (e) => {
+    if (!ideaIsOpen() || ideaWrap.contains(e.target)) return;
+    ideaPinned = false;
+    openIdea(false);
+  });
+  // Esc 收起(弹窗打开时交给弹窗处理)
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape' || !ideaIsOpen() || document.querySelector('dialog[open]')) return;
+    ideaPinned = false;
+    if (ideaWrap.contains(document.activeElement)) document.activeElement.blur();
+    openIdea(false);
+  });
+
+  function renderIdeaTypes() {
+    chips($('#idea-type'),
+      Object.entries(IDEA_TYPES).map(([value, t]) => ({ value, label: `${t.icon} ${t.label}` })),
+      ideaType,
+      (v) => { ideaType = v; renderIdeaTypes(); });
+  }
+
+  const ideaThumb = (src, rmAttr) => `
+    <div class="relative h-20 w-full overflow-hidden rounded-lg ring-1 ring-slate-200">
+      <img src="${src}" data-view alt="" loading="lazy" class="h-full w-full cursor-zoom-in object-cover">
+      <button type="button" ${rmAttr} title="移除示意图"
+        class="absolute right-1 top-1 h-5 w-5 rounded-full bg-slate-900/60 text-[10px] leading-5 text-white transition hover:bg-rose-600">✕</button>
+    </div>`;
+
+  function renderIdeaPhoto() {
+    $('#idea-photo').innerHTML = ideaPhoto
+      ? ideaThumb(ideaPhoto, 'data-idea-photo-rm')
+      : `<button type="button" data-idea-photo-add
+           class="flex h-20 w-full flex-col items-center justify-center gap-0.5 rounded-lg border-2 border-dashed border-slate-200 text-xs text-slate-400 transition hover:border-teal-300 hover:text-teal-600">
+           <span class="text-base">🖼</span>添加示意图(可选)</button>`;
+  }
+
+  /** target 为 null 表示填给新建表单,否则填给对应条目 */
+  const pickIdeaPhoto = (target) => {
+    ideaPhotoFor = target;
+    $('#idea-photo-input').click();
+  };
+
+  $('#idea-photo').addEventListener('click', (e) => {
+    if (e.target.matches('img[data-view]')) return viewImage(e.target.src);
+    if (e.target.closest('[data-idea-photo-add]')) return pickIdeaPhoto(null);
+    if (!e.target.closest('[data-idea-photo-rm]')) return;
+    ideaPhoto = '';
+    renderIdeaPhoto();
+  });
+
+  $('#idea-photo-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    let src;
+    try {
+      src = await compressImage(file, 900, 0.7);
+    } catch {
+      return toast(`「${file.name}」读取失败`, 'warn');
+    }
+    if (ideaPhotoFor === null) {
+      ideaPhoto = src;
+      return renderIdeaPhoto();
+    }
+    const x = plan.ideas.find((i) => i.id === ideaPhotoFor);
+    if (!x) return;
+    x.photo = src;
+    renderIdeas();
+    flush(null);
+  });
+
+  function renderIdeas() {
+    $('#idea-count').textContent = plan.ideas.length;
+    if (!plan.ideas.length) {
+      $('#idea-list').innerHTML = '<li class="py-6 text-center text-xs text-slate-400">还没有灵感,想到什么先记一条</li>';
+      return;
+    }
+    const dayOpts = plan.days
+      .map((d, i) => `<option value="${d.id}">Day ${i + 1}${d.title ? ' · ' + esc(d.title) : ''}</option>`)
+      .join('');
+
+    $('#idea-list').innerHTML = plan.ideas.map((x) => {
+      const t = IDEA_TYPES[x.type];
+      return `
+      <li class="rounded-xl border border-slate-200 p-2.5 transition hover:border-teal-300">
+        <div class="flex items-start gap-2">
+          <span class="shrink-0 rounded-full px-2 py-0.5 text-[11px] ring-1 ${t.cls}">${t.icon} ${t.label}</span>
+          <input data-idea="${x.id}" data-field="name" value="${esc(x.name)}" placeholder="名称"
+            class="min-w-0 flex-1 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium transition hover:border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+          <button data-del-idea="${x.id}" title="删除"
+            class="h-5 w-5 shrink-0 rounded text-slate-300 transition hover:bg-rose-50 hover:text-rose-600">✕</button>
+        </div>
+        <input data-idea="${x.id}" data-field="note" value="${esc(x.note)}" placeholder="备注"
+          class="mt-1 w-full rounded-md border border-transparent px-1.5 py-0.5 text-xs text-slate-500 transition hover:border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+        ${x.photo ? `<div class="mt-1.5">${ideaThumb(x.photo, `data-idea-photo-rm="${x.id}"`)}</div>` : ''}
+        <div class="mt-1.5 flex items-center justify-between gap-2">
+          <button data-idea-photo-add="${x.id}" title="${x.photo ? '换一张示意图' : '添加示意图'}"
+            class="shrink-0 rounded-md px-1.5 py-1 text-[11px] text-slate-400 transition hover:bg-slate-100 hover:text-teal-600">🖼 ${x.photo ? '换图' : '示意图'}</button>
+          <select data-idea-to="${x.id}" title="加入某一天的行程"
+            class="rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] text-slate-500 transition focus:border-teal-500 focus:ring-2 focus:ring-teal-500/30">
+            <option value="">加入行程…</option>${dayOpts}
+          </select>
+        </div>
+      </li>`;
+    }).join('');
+  }
+
+  $('#idea-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = $('#idea-name').value.trim();
+    if (!name) return toast('请填写名称', 'warn');
+    plan.ideas.unshift(normalizeIdea({
+      type: ideaType, name, note: $('#idea-note').value.trim(), photo: ideaPhoto,
+    }));
+    $('#idea-name').value = '';
+    $('#idea-note').value = '';
+    ideaPhoto = '';
+    renderIdeaPhoto();
+    $('#idea-name').focus();
+    renderIdeas();
+    flush(null);
+    toast(`已记下「${name}」`);
+  });
+
+  $('#idea-list').addEventListener('click', (e) => {
+    if (e.target.matches('img[data-view]')) return viewImage(e.target.src);
+
+    const addPhoto = e.target.closest('[data-idea-photo-add]');
+    if (addPhoto) return pickIdeaPhoto(addPhoto.dataset.ideaPhotoAdd);
+
+    const rmPhoto = e.target.closest('[data-idea-photo-rm]');
+    if (rmPhoto) {
+      const x = plan.ideas.find((i) => i.id === rmPhoto.dataset.ideaPhotoRm);
+      if (!x) return;
+      x.photo = '';
+      renderIdeas();
+      return flush(null);
+    }
+
+    const del = e.target.closest('[data-del-idea]');
+    if (!del) return;
+    const i = plan.ideas.findIndex((x) => x.id === del.dataset.delIdea);
+    const [removed] = plan.ideas.splice(i, 1);
+    renderIdeas();
+    flush(null);
+    toast(`已删除「${removed.name || '未命名'}」`, 'del');
+  });
+
+  $('#idea-list').addEventListener('input', (e) => {
+    const el = e.target.closest('[data-idea]');
+    if (!el) return;
+    const x = plan.ideas.find((i) => i.id === el.dataset.idea);
+    if (x) {
+      x[el.dataset.field] = el.value;
+      save();
+    }
+  });
+
+  // 选择某一天 → 转成该天的行程条目
+  $('#idea-list').addEventListener('change', (e) => {
+    const sel = e.target.closest('[data-idea-to]');
+    if (!sel || !sel.value) return;
+    const day = plan.days.find((d) => d.id === sel.value);
+    const i = plan.ideas.findIndex((x) => x.id === sel.dataset.ideaTo);
+    const idea = plan.ideas[i];
+    if (!day || !idea) return;
+    day.items.push(normalizeItem({
+      kind: 'activity',
+      name: idea.name,
+      detail: idea.note,
+      cat: IDEA_TYPES[idea.type].cat,
+      photos: idea.photo ? [idea.photo] : [],
+      cur: plan.currency,
+    }));
+    plan.ideas.splice(i, 1);
+    renderIdeas();
+    renderDays();
+    renderExpenses();
+    renderPlanList();
+    flush(null);
+    toast(`「${idea.name}」已加入 Day ${plan.days.indexOf(day) + 1}`);
+  });
+
+  /* ================= 示例 / 清空当前 ================= */
+  $('#btn-demo').addEventListener('click', () => {
+    if (!confirm(`将用示例内容覆盖当前计划「${plan.name}」,继续?`)) return;
+    const d = new Date();
+    d.setDate(d.getDate() + 30);
+    plan.name = '京都 · 奈良 5 日';
+    plan.trip = { destination: '京都 · 奈良', startDate: d.toISOString().slice(0, 10), people: 2 };
+    // 日本境内的花销默认记日元,机票在国内买所以记人民币
+    const A = (cat, name, time, address, budget, detail, status, cur = 'JPY') =>
+      normalizeItem({ kind: 'activity', cat, name, time, address, budget, detail, status, cur });
+    const T = (range, mode, from, to, duration, budget, time = '', detail = '', cur = 'JPY') =>
+      normalizeItem({ kind: 'transport', range, mode, from, to, duration, budget, time, detail, cur });
+
+    plan.days = [
+      { id: uid(), title: '抵达关西机场 → 京都', spots: '', notes: '先寄存行李,晚餐在锦市场附近',
+        items: [
+          T('long', '飞机', '浦东机场 T2', '关西机场 T1', '2 小时 40 分', 3200, '09:15',
+            'MU515 / 提前 2 小时值机\n需携带:护照、签证页、返程机票行程单', 'CNY'),
+          T('long', '火车/高铁', '关西机场站', '京都站', '75 分钟', 3600, '13:30',
+            'HARUKA 特急指定席 / 凭 ICOCA&HARUKA 套票在关空站 JR 窗口换票'),
+          A('food', '锦市场逛吃', '18:00', '京都市中京区锦小路通', 3000, '多数店铺 17:00 后陆续打烊,尽量早到', 'none'),
+          A('stay', '入住町屋旅馆', '20:30', '京都市下京区七条通', 20000, '前台 22:00 关门,晚到需提前联系', 'done'),
+        ] },
+      { id: uid(), title: '东山一日', spots: '', notes: '7 点前到清水寺可避开人流',
+        items: [
+          A('play', '清水寺', '07:00', '京都市东山区清水 1-294', 500, '开门 6:00,清晨人最少', 'none'),
+          T('short', '步行', '清水寺', '八坂神社', '25 分钟', 0),
+          A('food', '祇园午餐', '12:00', '京都市东山区祇园町', 4000, '', 'todo'),
+          A('play', '祇园花见小路', '17:30', '京都市东山区祇园町', 0, '傍晚有机会遇到艺伎出勤', 'none'),
+        ] },
+      { id: uid(), title: '岚山', spots: '', notes: '',
+        items: [
+          T('short', '地铁', '京都站', '嵯峨岚山站', '20 分钟', 240),
+          A('play', '竹林小径 + 天龙寺', '09:00', '京都市右京区嵯峨天龙寺', 500, '天龙寺庭园门票 500 日元', 'none'),
+          A('play', '嵯峨野小火车', '13:00', '嵯峨站', 880, '建议提前在官网预约指定席', 'todo'),
+          A('shop', '岚山商店街', '15:30', '京都市右京区嵯峨天龙寺造路町', 3000, '买些和风小物和抹茶点心', 'none'),
+        ] },
+      { id: uid(), title: '奈良一日往返', spots: '', notes: '',
+        items: [
+          T('long', '火车/高铁', '京都站', '近铁奈良站', '45 分钟', 640, '09:00', '近铁特急券可当日窗口购买'),
+          A('play', '东大寺 + 奈良公园', '10:00', '奈良市杂司町 406-1', 600, '鹿饼 200 日元一份', 'none'),
+          A('play', '春日大社', '14:00', '奈良市春日野町 160', 500, '', 'none'),
+        ] },
+      { id: uid(), title: '伏见稻荷 → 返程', spots: '', notes: '预留 3 小时到机场',
+        items: [
+          A('play', '伏见稻荷大社', '07:30', '京都市伏见区深草薮之内町 68', 0, '全天开放,清晨千本鸟居几乎无人', 'none'),
+          T('long', '火车/高铁', '京都站', '关西机场', '75 分钟', 3600, '11:00'),
+          T('long', '飞机', '关西机场 T1', '浦东机场 T2', '2 小时 30 分', 3200, '15:20',
+            'MU516 / 12:20 前到机场办理退税与值机', 'CNY'),
+        ] },
+    ];
+    plan.currency = 'JPY';
+    plan.rates = {};
+    // 机票、城际交通、门票已写进每日行程,这里只记不属于某一天的固定开销
+    plan.expenses = [
+      { id: uid(), name: '酒店(后 3 晚)', note: '', amount: 3600, cur: 'CNY' },
+      { id: uid(), name: '每日餐饮预留', note: '', amount: 60000, cur: 'JPY' },
+      { id: uid(), name: '购物纪念品', note: '', amount: 15000, cur: 'JPY' },
+    ];
+    plan.ideas = [
+      normalizeIdea({ type: 'food', name: '一乘寺拉面 総本店', note: '排队约 40 分钟,建议非饭点去' }),
+      normalizeIdea({ type: 'place', name: '贵船神社', note: '从出町柳换叡山电车,夏天有川床料理' }),
+      normalizeIdea({ type: 'act', name: '和服体验', note: '清水寺附近有多家,约 3000 日元起' }),
+      normalizeIdea({ type: 'thing', name: '开化堂茶筒', note: '京都站附近本店,可刻字' }),
+    ];
+    plan.tags = [...LUG_TAGS, '药品'];
+    plan.luggage = [
+      { name: '换洗衣物', qty: 5, tag: '衣物', status: 'unpacked' },
+      { name: '薄外套', qty: 1, tag: '衣物', status: 'packed' },
+      { name: '洗漱包', qty: 1, tag: '洗漱', status: 'packed' },
+      { name: '护照', qty: 2, tag: '证件财物', status: 'packed' },
+      { name: '日元现金', qty: 1, tag: '证件财物', status: 'none' },
+      { name: '手机充电器', qty: 2, tag: '电子设备', status: 'unpacked' },
+      { name: '转换插头', qty: 2, tag: '电子设备', status: 'none' },
+      { name: '相机 + 备用电池', qty: 1, tag: '电子设备', status: 'unpacked' },
+      { name: '常备感冒药', qty: 1, tag: '药品', status: 'unpacked' },
+    ].map(normalizeLug);
+    const dayBefore = (n) => {
+      const x = new Date(d);
+      x.setDate(x.getDate() - n);
+      return x.toLocaleDateString('sv').slice(0, 10);
+    };
+    plan.todos = [
+      { title: '办理日本签证', due: dayBefore(21), detail: '需要在职证明、流水、照片', done: true },
+      { title: '预约嵯峨野小火车', due: dayBefore(14), detail: '官网 10:00 放票', done: false },
+      { title: '换日元现金', due: dayBefore(5), detail: '预计 6 万日元', done: false },
+      { title: '办国际漫游 / 买 eSIM', due: dayBefore(3), detail: '', done: false },
+    ].map(normalizeTodo);
+    renderAll();
+    flush(null);
+    toast('示例已载入');
+  });
+
+  $('#btn-reset').addEventListener('click', () => {
+    if (!confirm(`将清空「${plan.name}」的行程与预算(计划本身保留),确定?`)) return;
+    const fresh = blankPlan(plan.name);
+    Object.assign(plan, {
+      poster: '', trip: fresh.trip, days: fresh.days, expenses: fresh.expenses,
+      tags: fresh.tags, luggage: fresh.luggage, todos: fresh.todos,
+      ideas: fresh.ideas, currency: fresh.currency, rates: fresh.rates,
+    });
+    renderAll();
+    flush(null);
+    toast('已清空当前计划', 'del');
+  });
+
+  /* ================= 启动 ================= */
+  ['#input-currency', '#a-cur', '#t-cur', '#exp-cur'].forEach((s) => {
+    $(s).innerHTML = curOptions();
+  });
+  $('#input-currency').addEventListener('change', (e) => {
+    plan.currency = curKey(e.target.value);
+    $('#exp-cur').value = plan.currency;
+    renderExpenses();
+    flush(null);
+    toast(`默认货币已设为 ${plan.currency}`);
+  });
+  renderIdeaTypes();
+  renderIdeaPhoto();
+  renderAll();
+  if (migrated) {
+    flush(null);
+    toast('已把旧版计划迁移到新的多计划结构');
+  } else {
+    $('#save-state').textContent = localStorage.getItem(KEY) ? `✓ 共 ${db.plans.length} 个计划` : '新的计划';
+  }
+})();
+</script>
+</body>
+</html>
